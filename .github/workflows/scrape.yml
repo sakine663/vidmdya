@@ -2,7 +2,7 @@ name: Film Arşivini Güncelle
 
 on:
   schedule:
-    - cron: '0 0 */4 * *'  # Her iki gecede bir 00:00 UTC
+    - cron: '0 0 */4 * *'  # Her 4 günde bir 00:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write  # Bu önemli! Push izni için
+      contents: write  # Push izni için önemli
 
     steps:
     - name: Kodu klonla
@@ -32,22 +32,20 @@ jobs:
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       run: node scrape.js
 
-    - name: Değişiklikleri kontrol et
-      id: check_changes
-      run: |
-        git status --porcelain
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "changes=true" >> $GITHUB_OUTPUT
-        else
-          echo "changes=false" >> $GITHUB_OUTPUT
-        fi
-
     - name: Değişiklikleri commit ve push et
-      if: steps.check_changes.outputs.changes == 'true'
       run: |
         git config user.name "GitHub Action"
         git config user.email "action@github.com"
-        git pull origin main --rebase || true
+        
+        # Git durumunu kontrol et, eklenen/değişen dosya var mı?
+        git status
+        
+        # Uzaktaki olası değişiklikleri al (Rebase yerine merge kullanarak çakışmaları azaltır)
+        git pull origin main --no-rebase || true
+        
+        # Sadece ilgili dosyaları ekle
         git add filmler/*.m3u
-        git commit -m "Update movies $(date +'%Y-%m-%d %H:%M')" || echo "No changes"
+        
+        # Eğer commit edilecek değişiklik varsa commit et ve pushla
+        git diff --cached --quiet || git commit -m "Update movies $(date +'%Y-%m-%d %H:%M')"
         git push origin main
